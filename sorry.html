@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Forgiveness Catch</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            --accent-pink: #ff758c;
+            --accent-purple: #764ba2;
+            --white: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-gradient);
+            touch-action: none;
+        }
+
+        #game-ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .score-board {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            color: var(--accent-purple);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            font-size: 1.2rem;
+        }
+
+        #start-screen, #win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #win-screen {
+            display: none;
+            background: var(--bg-gradient);
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }
+
+        h1 { color: var(--accent-purple); margin-bottom: 10px; }
+        p { color: #555; line-height: 1.6; }
+
+        .btn {
+            background: var(--accent-pink);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(255, 117, 140, 0.4);
+            transition: transform 0.2s;
+            pointer-events: auto;
+        }
+
+        .btn:hover { transform: scale(1.05); }
+
+        #player {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 4rem;
+            user-select: none;
+            cursor: grab;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .basket { width: 80px; height: 40px; }
+
+        .falling-item {
+            position: absolute;
+            font-size: 2rem;
+            user-select: none;
+            z-index: 4;
+        }
+
+        .celebration-heart {
+            position: absolute;
+            pointer-events: none;
+            animation: float-up 3s ease-out forwards;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-ui">
+        <span class="score-board">Hearts Caught: <span id="score">0</span> / 10</span>
+    </div>
+
+    <div id="start-screen">
+        <div class="card">
+            <h1>Forgiveness Catch</h1>
+            <p>I'm so sorry! 🥺<br>Catch 10 "Sorry" hearts in the basket to unlock my message.</p>
+            <button class="btn" onclick="startGame()">Start Game</button>
+        </div>
+    </div>
+
+    <div id="win-screen">
+        <div class="card">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">💖</div>
+            <h1>I'm Truly Sorry</h1>
+            <p>You caught all my apologies! You have no idea how much I value you. Can we please be okay again? 🥰</p>
+            <button class="btn" onclick="location.reload()">Restart</button>
+        </div>
+    </div>
+
+    <div id="player">
+        <span id="player-emoji">🧺</span>
+    </div>
+
+    <script>
+        let score = 0;
+        let gameActive = false;
+        const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score');
+        const winScreen = document.getElementById('win-screen');
+        const startScreen = document.getElementById('start-screen');
+        
+        let items = [];
+        const emojis = ['❤️', '💖', '💝', '💕', '✨'];
+
+        // Player movement
+        const movePlayer = (x) => {
+            if (!gameActive) return;
+            // Clamp player within screen bounds
+            const playerWidth = player.offsetWidth;
+            let targetX = x - playerWidth / 2;
+            targetX = Math.max(0, Math.min(window.innerWidth - playerWidth, targetX));
+            player.style.left = targetX + 'px';
+            player.style.transform = 'none'; // Remove the initial translate -50%
+        };
+
+        window.addEventListener('mousemove', (e) => movePlayer(e.clientX));
+        window.addEventListener('touchmove', (e) => {
+            movePlayer(e.touches[0].clientX);
+            e.preventDefault();
+        }, { passive: false });
+
+        function startGame() {
+            startScreen.style.display = 'none';
+            gameActive = true;
+            score = 0;
+            scoreDisplay.innerText = score;
+            spawnItem();
+            update();
+        }
+
+        function spawnItem() {
+            if (!gameActive) return;
+            
+            const item = document.createElement('div');
+            item.className = 'falling-item';
+            item.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+            item.style.left = Math.random() * (window.innerWidth - 40) + 'px';
+            item.style.top = '-50px';
+            document.body.appendChild(item);
+            
+            items.push({
+                element: item,
+                y: -50,
+                speed: 3 + Math.random() * 3
+            });
+
+            // Gradually speed up spawning
+            const nextSpawn = Math.max(400, 1000 - (score * 50));
+            setTimeout(spawnItem, nextSpawn);
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            const playerRect = player.getBoundingClientRect();
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += item.speed;
+                item.element.style.top = item.y + 'px';
+
+                const itemRect = item.element.getBoundingClientRect();
+
+                // Collision detection
+                if (
+                    itemRect.bottom >= playerRect.top &&
+                    itemRect.top <= playerRect.bottom &&
+                    itemRect.right >= playerRect.left &&
+                    itemRect.left <= playerRect.right
+                ) {
+                    // Caught!
+                    item.element.remove();
+                    items.splice(i, 1);
+                    score++;
+                    scoreDisplay.innerText = score;
+                    
+                    // Simple "catch" effect
+                    player.style.transform = 'scale(1.2)';
+                    setTimeout(() => player.style.transform = 'scale(1)', 100);
+
+                    if (score >= 10) {
+                        endGame();
+                    }
+                } 
+                // Remove if off screen
+                else if (item.y > window.innerHeight) {
+                    item.element.remove();
+                    items.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        function endGame() {
+            gameActive = false;
+            winScreen.style.display = 'flex';
+            
+            // Clear items
+            items.forEach(item => item.element.remove());
+            items = [];
+
+            // Background celebration
+            for(let i=0; i<30; i++) {
+                setTimeout(createCelebrationHeart, i * 150);
+            }
+        }
+
+        function createCelebrationHeart() {
+            const heart = document.createElement('div');
+            heart.className = 'celebration-heart';
+            heart.innerText = '💖';
+            heart.style.left = Math.random() * 100 + 'vw';
+            heart.style.bottom = '0';
+            heart.style.fontSize = (Math.random() * 20 + 20) + 'px';
+            document.body.appendChild(heart);
+            setTimeout(() => heart.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
